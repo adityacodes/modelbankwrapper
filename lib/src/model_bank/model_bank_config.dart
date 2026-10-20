@@ -4,8 +4,15 @@ class ModelBankConfig {
   static String baseAuthUrl =
       'https://auth1.altareq1.sandbox.apihub.openfinance.ae/auth';
 
+  /// Universal Link for TPP handoff (cbd-flutter.go.link).
+  static const String tppUniversalLink = 'https://cbd-flutter.go.link/tpp';
+
+  /// Custom URI Scheme for TPP in-app deep link handoff.
+  static const String tppCustomSchemeUrl =
+      'cbdflutter://digi/views?screen=tpp&action=tpp';
+
   /// Target redirect URL for the TPP application handoff.
-  static String targetTppUrl = 'https://cbd-flutter.go.link/tpp';
+  static String targetTppUrl = tppUniversalLink;
 
   /// Default issuer identifier when not explicitly returned in callback parameters.
   static String defaultIssuer =

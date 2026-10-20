@@ -132,10 +132,11 @@ class OAuthAuthResponse {
   }
 
   /// Builds the target TPP forward URL:
-  /// `${baseTppUrl}?state=${state}&code=${code}&issuer=${issuer}`
+  /// Preserves any existing query parameters in [baseTppUrl] and appends/updates
+  /// OAuth callback parameters (`state`, `code`, `issuer`, `error`, `error_description`).
   Uri toTppForwardUri(String baseTppUrl) {
     final base = Uri.parse(baseTppUrl);
-    final forwardParams = <String, String>{};
+    final forwardParams = Map<String, String>.from(base.queryParameters);
 
     if (state != null && state!.isNotEmpty) {
       forwardParams['state'] = state!;

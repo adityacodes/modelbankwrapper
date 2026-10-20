@@ -76,6 +76,16 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
     bool autoLaunch = ModelBankConfig.autoLaunchBrowser;
     bool autoOpen = ModelBankConfig.autoOpenTpp;
 
+    String selectedTppPreset;
+    if (ModelBankConfig.targetTppUrl == ModelBankConfig.tppUniversalLink) {
+      selectedTppPreset = ModelBankConfig.tppUniversalLink;
+    } else if (ModelBankConfig.targetTppUrl ==
+        ModelBankConfig.tppCustomSchemeUrl) {
+      selectedTppPreset = ModelBankConfig.tppCustomSchemeUrl;
+    } else {
+      selectedTppPreset = 'custom';
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -151,16 +161,110 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'TPP Redirect Handoff URL',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'TPP Redirect Handoff URL',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: CbdColors.limeLight,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: CbdColors.border),
+                      ),
+                      child: Text(
+                        selectedTppPreset == ModelBankConfig.tppCustomSchemeUrl
+                            ? 'Scheme: cbdflutter://'
+                            : (selectedTppPreset ==
+                                    ModelBankConfig.tppUniversalLink
+                                ? 'Universal: go.link'
+                                : 'Custom URL'),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: CbdColors.darkLime,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: selectedTppPreset,
+                  isExpanded: true,
+                  icon: const Icon(
+                    Icons.arrow_drop_down,
+                    color: CbdColors.darkLime,
+                  ),
+                  dropdownColor: Colors.white,
+                  decoration: InputDecoration(
+                    labelText: 'Preset Handoff URL',
+                    labelStyle: const TextStyle(
+                      fontSize: 12,
+                      color: CbdColors.textMuted,
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: ModelBankConfig.tppUniversalLink,
+                      child: Text(
+                        'Universal Link: cbd-flutter.go.link/tpp',
+                        style: TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: ModelBankConfig.tppCustomSchemeUrl,
+                      child: Text(
+                        'Custom Scheme: cbdflutter://digi/views?screen=tpp&action=tpp',
+                        style: TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'custom',
+                      child: Text(
+                        'Custom URL...',
+                        style: TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val == null) return;
+                    setModalState(() {
+                      selectedTppPreset = val;
+                      if (val != 'custom') {
+                        tppUrlCtrl.text = val;
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: tppUrlCtrl,
                   style: const TextStyle(fontSize: 12),
                   decoration: InputDecoration(
-                    hintText: 'https://cbd-flutter.go.link',
+                    hintText: 'https://... or cbdflutter://...',
+                    helperText: 'Active handoff target URL (editable)',
+                    helperStyle:
+                        const TextStyle(fontSize: 10.5, color: Colors.grey),
                     filled: true,
                     fillColor: Colors.grey.shade50,
                     contentPadding: const EdgeInsets.symmetric(
@@ -171,6 +275,18 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
+                  onChanged: (text) {
+                    final trimmed = text.trim();
+                    if (trimmed == ModelBankConfig.tppUniversalLink) {
+                      setModalState(() =>
+                          selectedTppPreset = ModelBankConfig.tppUniversalLink);
+                    } else if (trimmed == ModelBankConfig.tppCustomSchemeUrl) {
+                      setModalState(() => selectedTppPreset =
+                          ModelBankConfig.tppCustomSchemeUrl);
+                    } else {
+                      setModalState(() => selectedTppPreset = 'custom');
+                    }
+                  },
                 ),
                 const SizedBox(height: 14),
                 const Text(
@@ -536,7 +652,10 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
               _buildStepItem(
                 number: '4',
                 title: 'Handoff',
-                subtitle: 'cbd-flutter.go.link',
+                subtitle: ModelBankConfig.targetTppUrl
+                        .startsWith('cbdflutter://')
+                    ? 'cbdflutter://'
+                    : 'cbd-flutter.go.link',
                 isDone: step4Done,
                 isActive: stage == GatewayStage.forwardedToTpp,
               ),
@@ -622,9 +741,9 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
     OAuthAuthResponse resp,
     Uri? targetTppUri,
   ) {
-    final tppUrlString =
-        targetTppUri?.toString() ??
-        '${ModelBankConfig.targetTppUrl}?state=${resp.state}&code=${resp.code}&issuer=${resp.issuer}';
+    final tppUri =
+        targetTppUri ?? resp.toTppForwardUri(ModelBankConfig.targetTppUrl);
+    final tppUrlString = tppUri.toString();
 
     return Container(
       decoration: BoxDecoration(
@@ -711,6 +830,57 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
           const SizedBox(height: 16),
 
           // Target TPP URL Card
+          // Destination URL Selector
+          Row(
+            children: [
+              const Text(
+                'Handoff Destination:',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: CbdColors.textDark,
+                ),
+              ),
+              const Spacer(),
+              DropdownButton<String>(
+                value: ModelBankConfig.targetTppUrl ==
+                        ModelBankConfig.tppCustomSchemeUrl
+                    ? ModelBankConfig.tppCustomSchemeUrl
+                    : (ModelBankConfig.targetTppUrl ==
+                            ModelBankConfig.tppUniversalLink
+                        ? ModelBankConfig.tppUniversalLink
+                        : 'custom'),
+                isDense: true,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.arrow_drop_down,
+                    color: CbdColors.darkLime),
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: CbdColors.darkLime,
+                ),
+                dropdownColor: Colors.white,
+                items: const [
+                  DropdownMenuItem(
+                    value: ModelBankConfig.tppUniversalLink,
+                    child: Text('Universal Link (go.link)'),
+                  ),
+                  DropdownMenuItem(
+                    value: ModelBankConfig.tppCustomSchemeUrl,
+                    child: Text('Custom Scheme (cbdflutter://)'),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val == null || val == 'custom') return;
+                  setState(() {
+                    ModelBankConfig.targetTppUrl = val;
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -787,7 +957,8 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
                 'Open with params in Target TPP App',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
-              onPressed: () => _gatewayService.forwardToTpp(),
+              onPressed: () =>
+                  _gatewayService.forwardToTpp(targetTppUri: tppUri),
             ),
           ),
         ],
@@ -968,61 +1139,74 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
-              const Icon(
-                Icons.science_outlined,
-                color: CbdColors.darkLime,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Testing & Simulation Studio',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: CbdColors.textDark,
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  minimumSize: const Size(40, 28),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: () {
-                  _deepLinkInputController.text =
-                      ModelBankConfig.sampleDeepLink;
-                },
-                child: const Text(
-                  'Sample TPP',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.bold,
-                    color: CbdColors.oceanBlue,
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.science_outlined,
+                    color: CbdColors.darkLime,
+                    size: 20,
                   ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              TextButton(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  minimumSize: const Size(40, 28),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: () {
-                  _deepLinkInputController.text =
-                      ModelBankConfig.sampleApiHubLink;
-                },
-                child: const Text(
-                  'Sample APIHub',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.bold,
-                    color: CbdColors.limeGreen,
+                  SizedBox(width: 8),
+                  Text(
+                    'Testing & Simulation Studio',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: CbdColors.textDark,
+                    ),
                   ),
-                ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(40, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      _deepLinkInputController.text =
+                          ModelBankConfig.sampleDeepLink;
+                    },
+                    child: const Text(
+                      'Sample TPP',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: CbdColors.oceanBlue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(40, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      _deepLinkInputController.text =
+                          ModelBankConfig.sampleApiHubLink;
+                    },
+                    child: const Text(
+                      'Sample APIHub',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: CbdColors.limeGreen,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1362,7 +1546,7 @@ class _ModelBankGatewayScreenState extends State<ModelBankGatewayScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: logs.length > 25 ? 25 : logs.length,
-              separatorBuilder: (_, _) => Divider(
+              separatorBuilder: (context, index) => Divider(
                 color: Colors.white.withValues(alpha: 0.08),
                 height: 14,
               ),

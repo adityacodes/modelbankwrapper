@@ -57,7 +57,9 @@ class ModelBankGatewayManager: NSObject {
   }
 
   func configure(with registry: FlutterPluginRegistry) {
-    let registrar = registry.registrar(forPlugin: "ModelBankGatewayPlugin")
+    guard let registrar = registry.registrar(forPlugin: "ModelBankGatewayPlugin") else {
+      return
+    }
     let channel = FlutterMethodChannel(name: Self.channelName, binaryMessenger: registrar.messenger())
     self.channel = channel
 
@@ -346,7 +348,7 @@ class InAppBrowserViewController: UIViewController, WKNavigationDelegate, UIAdap
 
     let lowerUrl = urlString.lowercased()
     let isSuccessRedirect = (code != nil)
-    let isTppCallback = lowerUrl.contains("go.link") || lowerUrl.contains("/tpp") || lowerUrl.contains("mytpp")
+    let isTppCallback = lowerUrl.contains("go.link") || lowerUrl.contains("/tpp") || lowerUrl.contains("mytpp") || lowerUrl.contains("cbdflutter")
     let isErrorRedirect = (error != nil)
 
     if isSuccessRedirect || isTppCallback || isErrorRedirect {
